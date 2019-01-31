@@ -59,7 +59,7 @@ object MleapLambdaRequestHandler {
 
   @throws[IOException]
   def getBundle: Option[Bundle[Transformer]] = {
-    if (bundle.isEmpty)
+    if (bundle == null)
       Try(bundle = downloadBundleFromS3) match {
         case Failure(_) => throw new IOException("Failed to download bundle")
       }
