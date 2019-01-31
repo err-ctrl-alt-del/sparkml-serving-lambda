@@ -15,7 +15,7 @@ class MleapLambdaRequestHandlerTest extends FunSuite {
 
   def getBundle: Option[Bundle[Transformer]] = (for (
     bundleFile <- managed(BundleFile(new File(
-      "src/test/resources/" + ResourceConfiguration.getAwsS3Config._1)))) yield {
+      "src/test/resources/" + AwsResourceConfiguration.getAwsS3Config._1)))) yield {
     bundleFile.loadMleapBundle().get
   }).opt
 
