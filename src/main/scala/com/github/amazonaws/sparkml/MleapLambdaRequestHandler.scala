@@ -19,13 +19,6 @@ import scala.util.{Failure, Success, Try}
 
 class MleapLambdaRequestHandler extends RequestStreamHandler {
 
-  {
-    Try(downloadBundleFromS3) match {
-      case Success(_) =>
-      case Failure(_) => println("Failed to download bundle")
-    }
-  }
-
   override def handleRequest(input: InputStream, output: OutputStream, context: Context): Unit = {
     val inputAsString = IOUtils.toString(input, StandardCharsets.UTF_8)
     val inputFrame = FrameReader("ml.combust.mleap.json").fromBytes(inputAsString.getBytes())
@@ -49,6 +42,21 @@ class MleapLambdaRequestHandler extends RequestStreamHandler {
     }
   }
 
+  private def getBundle: Option[Bundle[Transformer]] = (for (
+    bundleFile <- managed(BundleFile("jar:file:" +
+      ResourceConfiguration.getAwsS3Config._4 + "/" + ResourceConfiguration.getAwsS3Config._1))) yield {
+    bundleFile.loadMleapBundle().get
+  }).opt
+
+}
+
+object MleapLambdaRequestHandler {
+
+  Try(downloadBundleFromS3()) match {
+    case Success(_) =>
+    case Failure(_) => println("Failed to download bundle")
+  }
+
   def downloadBundleFromS3(): Unit = {
     val s3Client: AmazonS3 = new AmazonS3Client()
     s3Client.setRegion(Region.getRegion(Regions.fromName(ResourceConfiguration.getAwsS3Config._3)))
@@ -57,11 +65,5 @@ class MleapLambdaRequestHandler extends RequestStreamHandler {
     FileUtils.copyInputStreamToFile(new BufferedInputStream(s3Object.getObjectContent),
       new File(ResourceConfiguration.getAwsS3Config._4 + "/" + ResourceConfiguration.getAwsS3Config._1))
   }
-
-  private def getBundle: Option[Bundle[Transformer]] = (for (
-    bundleFile <- managed(BundleFile("jar:file:" +
-      ResourceConfiguration.getAwsS3Config._4 + "/" + ResourceConfiguration.getAwsS3Config._1))) yield {
-    bundleFile.loadMleapBundle().get
-  }).opt
 
 }
