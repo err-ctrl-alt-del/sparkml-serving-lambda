@@ -58,7 +58,7 @@ object MleapLambdaRequestHandler {
   def getBundle(context: Context): Option[Bundle[Transformer]] = {
     if (bundle == null)
       try {
-        bundle = fetchDownloadedBundle
+        bundle = fetchCachedBundle
       } catch {
         case _: Exception => context.getLogger.log("Failed to fetch bundle from local directory")
       }
@@ -79,17 +79,17 @@ object MleapLambdaRequestHandler {
     FileUtils.copyInputStreamToFile(new BufferedInputStream(s3Object.getObjectContent),
       new File(AwsResourceConfiguration.getAwsS3ModelResourceConfig._4 + "/" +
         AwsResourceConfiguration.getAwsS3ModelResourceConfig._1))
-    fetchDownloadedS3Bundle
+    fetchDownloadedBundle
   }
 
-  private def fetchDownloadedS3Bundle: Option[Bundle[Transformer]] = (for (
+  private def fetchDownloadedBundle: Option[Bundle[Transformer]] = (for (
     bundleFile <- managed(BundleFile("jar:file:" +
       AwsResourceConfiguration.getAwsS3ModelResourceConfig._4 + "/" +
       AwsResourceConfiguration.getAwsS3ModelResourceConfig._1))) yield {
     bundleFile.loadMleapBundle().get
   }).opt
 
-  private def fetchDownloadedBundle: Option[Bundle[Transformer]] = (for (
+  private def fetchCachedBundle: Option[Bundle[Transformer]] = (for (
     bundleFile <- managed(BundleFile(new File(
       new File(AwsResourceConfiguration.getAwsS3ModelResourceConfig._4).getAbsolutePath + "/" +
       AwsResourceConfiguration.getAwsS3ModelResourceConfig._1)))) yield {
