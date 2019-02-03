@@ -3,10 +3,9 @@ package com.github.amazonaws.sparkml
 import java.io._
 import java.nio.charset.StandardCharsets
 
-import com.amazonaws.regions.{Region, Regions}
 import com.amazonaws.services.lambda.runtime.{Context, RequestStreamHandler}
+import com.amazonaws.services.s3.AmazonS3Client
 import com.amazonaws.services.s3.model.GetObjectRequest
-import com.amazonaws.services.s3.{AmazonS3, AmazonS3Client}
 import com.github.amazonaws.sparkml.MleapLambdaRequestHandler.getBundle
 import ml.combust.bundle.BundleFile
 import ml.combust.bundle.dsl.Bundle
@@ -20,23 +19,20 @@ import scala.util.{Failure, Success, Try}
 
 class MleapLambdaRequestHandler extends RequestStreamHandler {
 
-  var bundle: Option[Bundle[Transformer]] = _
-
   override def handleRequest(input: InputStream, output: OutputStream, context: Context): Unit = {
     try {
       val inputAsString = IOUtils.toString(input, StandardCharsets.UTF_8)
       val inputFrame = FrameReader("ml.combust.mleap.json").fromBytes(inputAsString.getBytes())
-      val mleapPipeline = new MleapPipelineTransformer(getBundle)
       inputFrame match {
         case Success(i) =>
-          val outputFrame = mleapPipeline.transform(i)
+          val outputFrame = new MleapPipelineTransformer(getBundle).transform(i)
           createOutputContent(output, context, outputFrame)
         case Failure(_) => context.getLogger.log("Failed to create frame from input payload")
       }
     } catch {
-      case _: IOException =>
+      case e : IOException =>
         context.getLogger.log("Failed to download bundle")
-        throw new IOException()
+        throw e
     }
   }
 
@@ -55,30 +51,33 @@ class MleapLambdaRequestHandler extends RequestStreamHandler {
 
 object MleapLambdaRequestHandler {
 
-  private var bundle: Option[Bundle[Transformer]] = _
+  private var bundle: Option[Bundle[Transformer]] = fetchDownloadedBundle
 
   @throws[IOException]
   def getBundle: Option[Bundle[Transformer]] = {
     if (bundle == null)
-      Try(bundle = downloadBundleFromS3) match {
-        case Failure(_) => throw new IOException("Failed to download bundle")
+      try {
+        bundle = downloadBundleFromS3
+      } catch {
+        case _: Exception => throw new IOException("Failed to download bundle")
       }
     bundle
   }
 
   private def downloadBundleFromS3: Option[Bundle[Transformer]] = {
-    val s3Client: AmazonS3 = new AmazonS3Client()
-    s3Client.setRegion(Region.getRegion(Regions.fromName(AwsResourceConfiguration.getAwsS3Config._3)))
-    val s3Object = s3Client.getObject(new GetObjectRequest(AwsResourceConfiguration.getAwsS3Config._2,
-      AwsResourceConfiguration.getAwsS3Config._1))
+    val s3Client = new AmazonS3Client()
+    val s3Object = s3Client.getObject(new GetObjectRequest(AwsResourceConfiguration.getAwsS3ModelResourceConfig._2,
+      AwsResourceConfiguration.getAwsS3ModelResourceConfig._1))
     FileUtils.copyInputStreamToFile(new BufferedInputStream(s3Object.getObjectContent),
-      new File(AwsResourceConfiguration.getAwsS3Config._4 + "/" + AwsResourceConfiguration.getAwsS3Config._1))
+      new File(AwsResourceConfiguration.getAwsS3ModelResourceConfig._4 + "/" +
+        AwsResourceConfiguration.getAwsS3ModelResourceConfig._1))
     fetchDownloadedBundle
   }
 
   private def fetchDownloadedBundle: Option[Bundle[Transformer]] = (for (
-    bundleFile <- managed(BundleFile("jar:file:" +
-      AwsResourceConfiguration.getAwsS3Config._4 + "/" + AwsResourceConfiguration.getAwsS3Config._1))) yield {
+    bundleFile <- managed(BundleFile(new File(
+      new File(AwsResourceConfiguration.getAwsS3ModelResourceConfig._4).getAbsolutePath + "/" +
+      AwsResourceConfiguration.getAwsS3ModelResourceConfig._1)))) yield {
     bundleFile.loadMleapBundle().get
   }).opt
 

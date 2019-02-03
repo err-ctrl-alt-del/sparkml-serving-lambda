@@ -1,40 +1,25 @@
 package com.github.amazonaws.sparkml
 
-import java.io.File
-import java.nio.charset.StandardCharsets
+import java.io.{ByteArrayOutputStream, File, FileInputStream}
 
-import ml.combust.bundle.BundleFile
-import ml.combust.bundle.dsl.Bundle
-import ml.combust.mleap.runtime.MleapSupport._
-import ml.combust.mleap.runtime.frame.Transformer
-import ml.combust.mleap.runtime.serialization.{FrameReader, FrameWriter}
-import resource.managed
-import org.scalatest.FunSuite
+import com.amazonaws.services.lambda.runtime.RequestStreamHandler
+import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
-class MleapLambdaRequestHandlerTest extends FunSuite {
+class MleapLambdaRequestHandlerTest extends FunSuite with BeforeAndAfterAll {
 
-  def getBundle: Option[Bundle[Transformer]] = (for (
-    bundleFile <- managed(BundleFile(new File(
-      "src/test/resources/" + AwsResourceConfiguration.getAwsS3Config._1)))) yield {
-    bundleFile.loadMleapBundle().get
-  }).opt
+  private val handlerInstance: RequestStreamHandler = new MleapLambdaRequestHandler()
 
-  test("MleapLambdaRequestHandlerTest.schema") {
-    assert(new MleapPipelineTransformer(getBundle).schema.get.fields.nonEmpty)
+  test("MleapLambdaRequestHandler.getBundle") {
+    assert(MleapLambdaRequestHandler.getBundle.nonEmpty)
   }
 
-  test("MleapLambdaRequestHandlerTest.transform") {
-    val s = scala.io.Source.fromFile(new File(
-      "src/test/resources/my-model-data/frame.json").getAbsolutePath).mkString
-    val inputFrame = FrameReader("ml.combust.mleap.json").fromBytes(s.getBytes(StandardCharsets.UTF_8))
-    val mleapPipeline = new MleapPipelineTransformer(getBundle)
-    val outputFrame = mleapPipeline.transform(inputFrame.get).get
-    val data = outputFrame.dataset
-    for(bytes <- outputFrame.writer("ml.combust.mleap.json").toBytes();
-        _ <- FrameReader("ml.combust.mleap.json").fromBytes(bytes)) {
-      println(new String(bytes))
-    }
-    assert(data.nonEmpty)
+  test("MleapLambdaRequestHandler.handleRequest") {
+    val inputFile = new File(AwsResourceConfiguration.getAwsS3ModelResourceConfig._4 + "/my-model-data/frame.json")
+      .getAbsolutePath
+    val outputStream = new ByteArrayOutputStream()
+    handlerInstance.handleRequest(new FileInputStream(inputFile), outputStream, null)
+    assert(outputStream.size() > 0)
+    println(new String(outputStream.toByteArray))
   }
 
 }
