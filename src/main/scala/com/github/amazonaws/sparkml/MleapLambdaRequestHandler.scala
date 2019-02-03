@@ -79,8 +79,15 @@ object MleapLambdaRequestHandler {
     FileUtils.copyInputStreamToFile(new BufferedInputStream(s3Object.getObjectContent),
       new File(AwsResourceConfiguration.getAwsS3ModelResourceConfig._4 + "/" +
         AwsResourceConfiguration.getAwsS3ModelResourceConfig._1))
-    fetchDownloadedBundle
+    fetchDownloadedS3Bundle
   }
+
+  private def fetchDownloadedS3Bundle: Option[Bundle[Transformer]] = (for (
+    bundleFile <- managed(BundleFile("jar:file:" +
+      AwsResourceConfiguration.getAwsS3ModelResourceConfig._4 + "/" +
+      AwsResourceConfiguration.getAwsS3ModelResourceConfig._1))) yield {
+    bundleFile.loadMleapBundle().get
+  }).opt
 
   private def fetchDownloadedBundle: Option[Bundle[Transformer]] = (for (
     bundleFile <- managed(BundleFile(new File(
