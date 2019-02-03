@@ -3,6 +3,7 @@ package com.github.amazonaws.sparkml
 import java.io._
 import java.nio.charset.StandardCharsets
 
+import com.amazonaws.regions.{Region, Regions}
 import com.amazonaws.services.lambda.runtime.{Context, RequestStreamHandler}
 import com.amazonaws.services.s3.AmazonS3Client
 import com.amazonaws.services.s3.model.GetObjectRequest
@@ -72,6 +73,7 @@ object MleapLambdaRequestHandler {
 
   private def downloadBundleFromS3: Option[Bundle[Transformer]] = {
     val s3Client = new AmazonS3Client()
+    s3Client.setRegion(Region.getRegion(Regions.fromName(AwsResourceConfiguration.getAwsS3ModelResourceConfig._3)))
     val s3Object = s3Client.getObject(new GetObjectRequest(AwsResourceConfiguration.getAwsS3ModelResourceConfig._2,
       AwsResourceConfiguration.getAwsS3ModelResourceConfig._1))
     FileUtils.copyInputStreamToFile(new BufferedInputStream(s3Object.getObjectContent),
