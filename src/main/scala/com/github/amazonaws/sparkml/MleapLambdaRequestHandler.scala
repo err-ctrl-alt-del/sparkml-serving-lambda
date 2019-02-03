@@ -25,7 +25,7 @@ class MleapLambdaRequestHandler extends RequestStreamHandler {
       val inputFrame = FrameReader("ml.combust.mleap.json").fromBytes(inputAsString.getBytes())
       inputFrame match {
         case Success(i) =>
-          val outputFrame = new MleapPipelineTransformer(getBundle).transform(i)
+          val outputFrame = new MleapPipelineTransformer(getBundle(context)).transform(i)
           createOutputContent(output, context, outputFrame)
         case Failure(_) => context.getLogger.log("Failed to create frame from input payload")
       }
@@ -51,15 +51,21 @@ class MleapLambdaRequestHandler extends RequestStreamHandler {
 
 object MleapLambdaRequestHandler {
 
-  private var bundle: Option[Bundle[Transformer]] = fetchDownloadedBundle
+  private var bundle: Option[Bundle[Transformer]] = _
 
   @throws[IOException]
-  def getBundle: Option[Bundle[Transformer]] = {
+  def getBundle(context: Context): Option[Bundle[Transformer]] = {
+    if (bundle == null)
+      try {
+        bundle = fetchDownloadedBundle
+      } catch {
+        case _: Exception => context.getLogger.log("Failed to fetch bundle from local directory")
+      }
     if (bundle == null)
       try {
         bundle = downloadBundleFromS3
       } catch {
-        case _: Exception => throw new IOException("Failed to download bundle")
+        case _: Exception => throw new IOException("Failed to download bundle from S3")
       }
     bundle
   }

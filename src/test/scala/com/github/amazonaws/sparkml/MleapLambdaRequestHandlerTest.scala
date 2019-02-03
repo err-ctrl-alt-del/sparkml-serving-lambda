@@ -10,7 +10,7 @@ class MleapLambdaRequestHandlerTest extends FunSuite with BeforeAndAfterAll {
   private val handlerInstance: RequestStreamHandler = new MleapLambdaRequestHandler()
 
   test("MleapLambdaRequestHandler.getBundle") {
-    assert(MleapLambdaRequestHandler.getBundle.nonEmpty)
+    assert(MleapLambdaRequestHandler.getBundle(null).nonEmpty)
   }
 
   test("MleapLambdaRequestHandler.handleRequest") {
